@@ -6,7 +6,7 @@
           <img class="logo_login" src="@/assets/logo_login.png" alt="">
         </div>
         <div class="header">
-          <a href="/"><span class="title">Gin-Vue-Admin</span></a>
+          <a href="/"><span class="title">Bee Manager</span></a>
         </div>
       </div>
       <div class="main">
@@ -144,6 +144,9 @@ export default {
           return false
         }
       })
+    },
+    goRegister() {
+      this.$router.push({ name: 'Register' })
     },
     changeLock() {
       this.lock = this.lock === 'lock' ? 'unlock' : 'lock'

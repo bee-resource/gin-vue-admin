@@ -3,12 +3,12 @@
     <div>
       <span>Powered by</span>
       <span>
-        <a href="https://github.com/flipped-aurora/gin-vue-admin">gin-vue-admin</a>
+        Bee Manager
       </span>
       <el-divider direction="vertical" />
       <span>Copyright</span>
       <span>
-        <a href="https://github.com/flipped-aurora">flipped-aurora团队</a>
+        <a href="https://github.com/flipped-aurora">chainskr</a>
       </span>
     </div>
   </div>

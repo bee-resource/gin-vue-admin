@@ -78,7 +78,7 @@ export default {
       } else if (/(?=.*?[A-Z])(?=.*?[a-z])(?=.*?\d)(?=.*?[#/\\?!@=,<>;|"$%^&*\-_~+:.'`{}()[\]])/.test(value)) {
         callback()
       } else {
-        return callback(new Error('密码必须包含数字字母以及特殊字符'))
+        return callback(new Error('密码必须包含数字大小写字母以及特殊字符'))
       }
     }
     return {

@@ -5,7 +5,7 @@
       <el-aside class="main-cont main-left">
         <div class="tilte">
           <img alt class="logoimg" src="~@/assets/nav_logo.png">
-          <h2 v-if="isSider" class="tit-text">Gin-Vue-Admin</h2>
+          <h2 v-if="isSider" class="tit-text">Bee Manager</h2>
         </div>
         <Aside class="aside" />
       </el-aside>
@@ -179,7 +179,7 @@ export default {
       this.$bus.emit('collapse', this.isCollapse)
     },
     toPerson() {
-      this.$router.push({ name: 'person' })
+      this.$router.push('/register')
     },
     changeShadow() {
       this.isShadowBg = !this.isShadowBg
