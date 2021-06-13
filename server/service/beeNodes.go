@@ -1,9 +1,12 @@
 package service
 
 import (
+	"errors"
 	"gin-vue-admin/global"
 	"gin-vue-admin/model"
 	"gin-vue-admin/model/request"
+	"gin-vue-admin/utils"
+	"strconv"
 )
 
 //@author: [piexlmax](https://github.com/piexlmax)
@@ -97,4 +100,25 @@ func GetBeeNodesInfoList(info request.BeeNodesSearch, jwtId uint) (err error, li
 		err = db.Where("user_id = ?", jwtId).Limit(limit).Offset(offset).Find(&beeNodess).Error
 	}
 	return err, beeNodess, total
+}
+
+func UpdateBeeNodeStatus(id uint, jwtId uint) (err error, beeNodes model.BeeNodes) {
+	err, beeNodes = GetBeeNodes(id)
+	if err != nil {
+		return
+	}
+	if jwtId == 1 || beeNodes.ID == id {
+		nodeState := utils.GetBeeNodeState(beeNodes.Ip, strconv.Itoa(beeNodes.DebugPort))
+		beeNodes.BzzBalance = nodeState.BzzBalance
+		beeNodes.EthBalance = nodeState.EthBalance
+		beeNodes.PeerCount = nodeState.PeerCount
+		beeNodes.UncashedCount = nodeState.CashCount
+		beeNodes.UncashedAmount = nodeState.TotalUnCashed
+		beeNodes.WalletAddress = nodeState.Address
+		beeNodes.Version = nodeState.Version
+		err = global.GVA_DB.Save(&beeNodes).Error
+	} else {
+		err = errors.New("Can not query this bee node")
+	}
+	return
 }

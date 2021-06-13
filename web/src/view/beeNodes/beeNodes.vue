@@ -29,30 +29,40 @@
       style="width: 100%"
       tooltip-effect="dark"
     >
-    <el-table-column type="selection" width="55"></el-table-column>
-    <el-table-column label="上次更新日期" width="180">
+    <el-table-column type="selection" width="40"></el-table-column>
+    <el-table-column label="上次更新日期" width="160">
          <template slot-scope="scope">{{scope.row.UpdatedAt|formatDate}}</template>
     </el-table-column>
     
-    <el-table-column label="名称" prop="name" width="120"></el-table-column> 
+    <el-table-column label="名称" prop="name" width="60"></el-table-column> 
     
+    <el-table-column label="版本" prop="version" width="85">
+    </el-table-column> 
+
     <el-table-column label="ip" prop="ip" width="120"></el-table-column> 
     
-    <el-table-column label="端口" prop="debugPort" width="120"></el-table-column> 
+    <el-table-column label="端口" prop="debugPort" width="60"></el-table-column> 
     
-    <el-table-column label="钱包地址" prop="walletAddress" width="120"></el-table-column> 
+    <el-table-column label="钱包地址" min-width="100">
+        <template slot-scope="scope">
+          <a :href="'https://goerli.etherscan.io/address/'+scope.row.walletAddress"
+            target="_blank">{{scope.row.walletAddress}}
+          </a>
+        </template>
+    </el-table-column> 
     
-    <el-table-column label="未领取票数" prop="uncashedCount" width="120"></el-table-column> 
+    <el-table-column label="未领取票数" prop="uncashedCount" width="100"></el-table-column> 
     
-    <el-table-column label="连接数" prop="peerCount" width="120"></el-table-column> 
+    <el-table-column label="连接数" prop="peerCount" width="80"></el-table-column> 
     
-    <el-table-column label="eth余额" prop="ethBalance" width="120"></el-table-column> 
+    <el-table-column label="eth余额" prop="ethBalance" width="100"></el-table-column> 
     
-    <el-table-column label="bzz余额" prop="bzzBalance" width="120"></el-table-column> 
+    <el-table-column label="bzz余额" prop="bzzBalance" width="100"></el-table-column> 
     
       <el-table-column label="按钮组">
         <template slot-scope="scope">
           <el-button class="table-button" @click="updateBeeNodes(scope.row)" size="small" type="primary" icon="el-icon-edit">变更</el-button>
+          <el-button class="table-button" @click="updateBeeNodesStatus(scope.row)" size="small" type="primary" icon="el-icon-edit">检查状态</el-button>
           <el-button type="danger" icon="el-icon-delete" size="mini" @click="deleteRow(scope.row)">删除</el-button>
         </template>
       </el-table-column>
@@ -94,6 +104,7 @@ import {
     deleteBeeNodes,
     deleteBeeNodesByIds,
     updateBeeNodes,
+    updateBeeNodesStatus,
     findBeeNodes,
     getBeeNodesList
 } from "@/api/beeNodes";  //  此处请自行替换地址
@@ -190,6 +201,7 @@ export default {
       this.formData = {
           uuid:"",
           name:"",
+          version:"",
           ip:"",
           debugPort:0,
           walletAddress:"",
@@ -198,11 +210,9 @@ export default {
           ethBalance:0,
           bzzBalance:0,
           user_id:"",
-          
       };
     },
     async deleteBeeNodes(row) {
-      console.log(row);
       const res = await deleteBeeNodes({ ID: row.ID, userId: row.userId });
       if (res.code == 0) {
         this.$message({
@@ -215,6 +225,16 @@ export default {
         this.getTableData();
       }
     },
+    async updateBeeNodesStatus(row) {
+      const res = await updateBeeNodesStatus({ ID: row.ID, userId: row.userId });
+      if (res.code == 0) {
+        this.$message({
+          type: "success",
+          message: "更新状态成功"
+        });
+        this.getTableData();
+      }
+    },
     async enterDialog() {
       let res;
       switch (this.type) {
@@ -223,6 +243,9 @@ export default {
           break;
         case "update":
           res = await updateBeeNodes(this.formData);
+          break;
+        case "refresh":
+          res = await updateBeeNodesStatus(this.formData);;
           break;
         default:
           res = await createBeeNodes(this.formData);
@@ -250,4 +273,7 @@ export default {
 </script>
 
 <style>
+a:link {
+  color: #2665e4;
+}
 </style>

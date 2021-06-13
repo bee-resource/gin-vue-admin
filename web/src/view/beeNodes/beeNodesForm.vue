@@ -4,7 +4,9 @@
              <el-form-item label="uuid字段:">
                 <el-input v-model="formData.uuid" clearable placeholder="请输入" ></el-input>
           </el-form-item>
-           
+            <el-form-item label="ip字段:">
+                <el-input v-model="formData.ip" clearable placeholder="请输入" ></el-input>
+          </el-form-item>
              <el-form-item label="name字段:">
                 <el-input v-model="formData.name" clearable placeholder="请输入" ></el-input>
           </el-form-item>
@@ -27,7 +29,7 @@
           </el-form-item>
            
              <el-form-item label="ethBalance字段:">
-                  <el-input-number v-model="formData.ethBalance" :precision="2" clearable></el-input-number>
+                  <el-input-number v-model="formData.ethBalance" :precision="8" clearable></el-input-number>
            </el-form-item>
            
              <el-form-item label="bzzBalance字段:">

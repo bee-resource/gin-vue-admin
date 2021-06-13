@@ -141,3 +141,15 @@ func GetBeeNodesList(c *gin.Context) {
 		}, "获取成功", c)
 	}
 }
+
+func UpdateBeeNodeStatus(c *gin.Context) {
+	var beeNodes model.BeeNodes
+	_ = c.ShouldBindJSON(&beeNodes)
+	jwtId := getUserID(c)
+	if err, rebeeNodes := service.UpdateBeeNodeStatus(beeNodes.ID, jwtId); err != nil {
+		global.GVA_LOG.Error("更新失败!", zap.Any("err", err))
+		response.FailWithMessage("更新失败", c)
+	} else {
+		response.OkWithData(gin.H{"rebeeNodes": rebeeNodes}, c)
+	}
+}
