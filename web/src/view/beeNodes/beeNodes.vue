@@ -1,12 +1,12 @@
 <template>
   <div>
     <div class="search-term">
-      <el-form :inline="true" :model="searchInfo" class="demo-form-inline">                    
+      <el-form :inline="true" :model="searchInfo" class="demo-form-inline">
         <el-form-item>
           <el-button @click="onSubmit" type="primary">查询</el-button>
         </el-form-item>
         <el-form-item>
-          <el-button @click="openDialog" type="primary">新增beeNodes表</el-button>
+          <el-button @click="openDialog" type="primary">新增节点</el-button>
         </el-form-item>
         <el-form-item>
           <el-popover placement="top" v-model="deleteVisible" width="160">
@@ -33,36 +33,33 @@
     <el-table-column label="上次更新日期" width="160">
          <template slot-scope="scope">{{scope.row.UpdatedAt|formatDate}}</template>
     </el-table-column>
-    
-    <el-table-column label="名称" prop="name" width="60"></el-table-column> 
-    
-    <el-table-column label="版本" prop="version" width="85">
-    </el-table-column> 
 
-    <el-table-column label="ip" prop="ip" width="120"></el-table-column> 
-    
-    <el-table-column label="端口" prop="debugPort" width="60"></el-table-column> 
-    
+    <el-table-column label="名称" prop="name" width="60"></el-table-column>
+
+    <el-table-column label="版本" prop="version" width="85">
+    </el-table-column>
+
+    <el-table-column label="ip" prop="ip" width="120"></el-table-column>
+
+    <el-table-column label="端口" prop="debugPort" width="60"></el-table-column>
+
     <el-table-column label="钱包地址" min-width="100">
         <template slot-scope="scope">
           <a :href="'https://goerli.etherscan.io/address/'+scope.row.walletAddress"
             target="_blank">{{scope.row.walletAddress}}
           </a>
         </template>
-    </el-table-column> 
-    
-    <el-table-column label="未领取票数" prop="uncashedCount" width="100"></el-table-column> 
-    
-    <el-table-column label="连接数" prop="peerCount" width="80"></el-table-column> 
-    
-    <el-table-column label="eth余额" prop="ethBalance" width="100"></el-table-column> 
-    
-    <el-table-column label="bzz余额" prop="bzzBalance" width="100"></el-table-column> 
-    
-      <el-table-column label="按钮组">
+    </el-table-column>
+
+    <el-table-column label="未领票数" prop="uncashedCount" width="80"></el-table-column>
+    <el-table-column label="未领票值" prop="uncashedAmount" width="80"></el-table-column>
+    <el-table-column label="连接数" prop="peerCount" width="70"></el-table-column>
+    <el-table-column label="eth余额" prop="ethBalance" width="100"></el-table-column>
+    <el-table-column label="bzz余额" prop="bzzBalance" width="100"></el-table-column>
+      <el-table-column label="操作" width="300">
         <template slot-scope="scope">
+          <el-button class="table-button" @click="updateBeeNodesStatus(scope.row)" size="small" type="warning" icon="el-icon-edit">检查状态</el-button>
           <el-button class="table-button" @click="updateBeeNodes(scope.row)" size="small" type="primary" icon="el-icon-edit">变更</el-button>
-          <el-button class="table-button" @click="updateBeeNodesStatus(scope.row)" size="small" type="primary" icon="el-icon-edit">检查状态</el-button>
           <el-button type="danger" icon="el-icon-delete" size="mini" @click="deleteRow(scope.row)">删除</el-button>
         </template>
       </el-table-column>
@@ -78,6 +75,20 @@
       @size-change="handleSizeChange"
       layout="total, sizes, prev, pager, next, jumper"
     ></el-pagination>
+
+    <el-dialog :before-close="closeBatchImportDialog" :visible.sync="batchImportDialogFormVisible">
+      <el-form :model="batchImportFormData" label-position="right" label-width="80px">
+        <el-form-item label="批量导入">
+          <el-input v-model="batchImportFormData.nodes" type="textarea"
+            placeholder="可导入多个节点，每行为一个节点，格式为ip:port，或者只输入ip，port默认为1635批量导入"
+            :autosize="{minRows: 20, maxRows: 500}" :style="{width: '100%'}"></el-input>
+        </el-form-item>
+      </el-form>
+      <div class="dialog-footer" slot="footer">
+        <el-button @click="closeBatchImportDialog">取消</el-button>
+        <el-button type="primary" @click="enterBatchImportDialog">确定</el-button>
+      </div>
+    </el-dialog>
 
     <el-dialog :before-close="closeDialog" :visible.sync="dialogFormVisible" title="弹窗操作">
       <el-form :model="formData" label-position="right" label-width="80px">
@@ -106,7 +117,8 @@ import {
     updateBeeNodes,
     updateBeeNodesStatus,
     findBeeNodes,
-    getBeeNodesList
+    getBeeNodesList,
+    importBeeNodes
 } from "@/api/beeNodes";  //  此处请自行替换地址
 import { formatTimeToStr } from "@/utils/date";
 import infoList from "@/mixins/infoList";
@@ -117,12 +129,15 @@ export default {
     return {
       listApi: getBeeNodesList,
       dialogFormVisible: false,
+      batchImportDialogFormVisible: false,
       type: "",
       deleteVisible: false,
       multipleSelection: [],formData: {
             name:"",
             ip:"",
             debugPort:1635,
+      }, batchImportFormData : {
+        nodes: ""
       }
     };
   },
@@ -147,7 +162,7 @@ export default {
       //条件搜索前端看此方法
       onSubmit() {
         this.page = 1
-        this.pageSize = 10              
+        this.pageSize = 10
         this.getTableData()
       },
       handleSelectionChange(val) {
@@ -206,10 +221,17 @@ export default {
           debugPort:0,
           walletAddress:"",
           uncashedCount:0,
+          uncashedAmount:0,
           peerCount:0,
           ethBalance:0,
           bzzBalance:0,
           user_id:"",
+      };
+    },
+    closeBatchImportDialog() {
+      this.batchImportDialogFormVisible = false;
+      this.batchImportFormData = {
+        nodes: ""
       };
     },
     async deleteBeeNodes(row) {
@@ -260,9 +282,30 @@ export default {
         this.getTableData();
       }
     },
+    async enterBatchImportDialog() {
+      const ipPortList = []
+      let nodes = this.batchImportFormData.nodes.split("\n");
+      for (let index = 0; index < nodes.length; index++) {
+        const ipPort = nodes[index].split(":");
+        let port = 1635;
+        if(ipPort.length == 2) {
+          port = ipPort[1];
+        }
+        ipPortList.push({Ip: ipPort[0], Port: parseInt(port)})
+      }
+      let res = await importBeeNodes({ipPortList: ipPortList});
+      if (res.code == 0) {
+        this.$message({
+          type:"success",
+          message:"创建/更改成功"
+        })
+        this.closeBatchImportDialog();
+        this.getTableData();
+      }
+    },
+
     openDialog() {
-      this.type = "create";
-      this.dialogFormVisible = true;
+      this.batchImportDialogFormVisible = true;
     }
   },
   async created() {

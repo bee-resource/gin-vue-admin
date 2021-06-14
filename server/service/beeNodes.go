@@ -20,6 +20,11 @@ func CreateBeeNodes(beeNodes model.BeeNodes) (err error) {
 	return err
 }
 
+func CreateBeeNodesInBatch(beeNodesList []model.BeeNodes) (err error) {
+	err = global.GVA_DB.CreateInBatches(&beeNodesList, 1000).Error
+	return err
+}
+
 //@author: [piexlmax](https://github.com/piexlmax)
 //@function: DeleteBeeNodes
 //@description: 删除BeeNodes记录

@@ -103,3 +103,11 @@ export const updateBeeNodesStatus = (data) => {
     data,
   });
 };
+
+export const importBeeNodes = (data) => {
+  return service({
+    url: "/beeNodes/importBeeNodes",
+    method: "post",
+    data,
+  });
+};

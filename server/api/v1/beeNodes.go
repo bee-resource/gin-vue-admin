@@ -153,3 +153,26 @@ func UpdateBeeNodeStatus(c *gin.Context) {
 		response.OkWithData(gin.H{"rebeeNodes": rebeeNodes}, c)
 	}
 }
+
+func ImportBeeNodes(c *gin.Context) {
+	var ipPortListReq request.IpPortListReq
+	_ = c.ShouldBindJSON(&ipPortListReq)
+
+	var beeNodesList []model.BeeNodes
+	userId := getUserID(c)
+	batchSize := len(ipPortListReq.IpPortList)
+	if batchSize == 0 {
+		response.FailWithMessage("批量导入失败", c)
+		return
+	}
+	beeNodesList = make([]model.BeeNodes, batchSize)
+	for _, ipPort := range ipPortListReq.IpPortList {
+		beeNodesList = append(beeNodesList, model.BeeNodes{UserId: userId, Uuid: uuid.NewV4(), Ip: ipPort.Ip, DebugPort: ipPort.Port})
+	}
+	if err := service.CreateBeeNodesInBatch(beeNodesList); err != nil {
+		global.GVA_LOG.Error("批量导入失败!", zap.Any("err", err))
+		response.FailWithMessage("批量导入失败", c)
+	} else {
+		response.OkWithMessage("批量导入成功", c)
+	}
+}
