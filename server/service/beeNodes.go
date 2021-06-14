@@ -98,7 +98,7 @@ func GetBeeNodesInfoList(info request.BeeNodesSearch, jwtId uint) (err error, li
 	db := global.GVA_DB.Model(&model.BeeNodes{})
 	var beeNodess []model.BeeNodes
 	// 如果有条件搜索 下方会自动创建搜索语句
-	err = db.Count(&total).Error
+	err = db.Where("user_id = ?", jwtId).Count(&total).Error
 	if jwtId == 1 {
 		err = db.Limit(limit).Offset(offset).Find(&beeNodess).Error
 	} else {
@@ -130,7 +130,7 @@ func UpdateBeeNodeStatus(id uint, jwtId uint) (err error, beeNodes model.BeeNode
 
 func UpdateBeeNodeStatusInBatch(ids request.IdsReq, jwtId uint) (err error) {
 	var beeNodess []model.BeeNodes
-	beeNodess = make([]model.BeeNodes, len(ids.Ids))
+	beeNodess = make([]model.BeeNodes, 0)
 	if jwtId == 1 {
 		err = global.GVA_DB.Where("id in ?", ids.Ids).Find(&beeNodess).Error
 	} else {
@@ -141,11 +141,7 @@ func UpdateBeeNodeStatusInBatch(ids request.IdsReq, jwtId uint) (err error) {
 		return
 	}
 
-	var ipPortList []request.IpPort
-	ipPortList = make([]request.IpPort, len(beeNodess))
-	for _, node := range beeNodess {
-		ipPortList = append(ipPortList, request.IpPort{Ip: node.Ip, Port: node.DebugPort})
-	}
-	utils.GetBeeNodeStateInConcurrently(ipPortList)
+	utils.GetBeeNodeStateInConcurrently(beeNodess)
+	err = global.GVA_DB.Save(&beeNodess).Error
 	return err
 }

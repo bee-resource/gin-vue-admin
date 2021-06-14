@@ -3,7 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"gin-vue-admin/global"
-	"gin-vue-admin/model/request"
+	"gin-vue-admin/model"
 	"io"
 	"io/ioutil"
 	"log"
@@ -48,19 +48,30 @@ type NodeState struct {
 	Version       string
 }
 
-func GetBeeNodeStateInConcurrently(ipPorts []request.IpPort) {
+func GetBeeNodeStateInConcurrently(beeNodess []model.BeeNodes) {
 	var wg sync.WaitGroup
-	for _, ipPort := range ipPorts {
+	for index, node := range beeNodess {
 		wg.Add(1)
-		go func(ipPort request.IpPort) {
+		go func(index int, node model.BeeNodes) {
 			defer wg.Done()
-			GetBeeNodeState(ipPort.Ip, strconv.Itoa(ipPort.Port))
-		}(ipPort)
+			nodeState := GetBeeNodeState(node.Ip, strconv.Itoa(node.DebugPort))
+			node.BzzBalance = nodeState.BzzBalance
+			node.EthBalance = nodeState.EthBalance
+			node.PeerCount = nodeState.PeerCount
+			node.UncashedCount = nodeState.CashCount
+			node.UncashedAmount = nodeState.TotalUnCashed
+			node.WalletAddress = nodeState.Address
+			node.Version = nodeState.Version
+			node.UpdatedAt = time.Now()
+			beeNodess[index] = node
+			// fmt.Printf("index %v, %v, %v\n", index, beeNodess[index], nodeState)
+		}(index, node)
 	}
 	wg.Wait()
 }
 
-func GetBeeNodeState(ip string, port string) (nodeState NodeState) {
+func GetBeeNodeState(ip string, port string) (nodeState *NodeState) {
+	nodeState = new(NodeState)
 	address := getAddress(ip, port)
 	if address == "" {
 		return
@@ -90,7 +101,7 @@ func GetBeeNodeState(ip string, port string) (nodeState NodeState) {
 	nodeState.PeerCount = getPeerLength(ip, port)
 	nodeState.Version = healthCheck(ip, port)
 
-	// fmt.Printf("%+v\n", nodeState)
+	// fmt.Printf("node state : %+v\n", nodeState)
 	return
 }
 
