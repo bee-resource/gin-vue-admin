@@ -2,13 +2,16 @@ package utils
 
 import (
 	"encoding/json"
-	"fmt"
 	"gin-vue-admin/global"
+	"gin-vue-admin/model/request"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
+	"sync"
 	"time"
+	// "github.com/panjf2000/ants/v2" # goroutine pool, TODO
 )
 
 type GetNonceParams struct {
@@ -45,6 +48,18 @@ type NodeState struct {
 	Version       string
 }
 
+func GetBeeNodeStateInConcurrently(ipPorts []request.IpPort) {
+	var wg sync.WaitGroup
+	for _, ipPort := range ipPorts {
+		wg.Add(1)
+		go func(ipPort request.IpPort) {
+			defer wg.Done()
+			GetBeeNodeState(ipPort.Ip, strconv.Itoa(ipPort.Port))
+		}(ipPort)
+	}
+	wg.Wait()
+}
+
 func GetBeeNodeState(ip string, port string) (nodeState NodeState) {
 	address := getAddress(ip, port)
 	if address == "" {
@@ -75,7 +90,7 @@ func GetBeeNodeState(ip string, port string) (nodeState NodeState) {
 	nodeState.PeerCount = getPeerLength(ip, port)
 	nodeState.Version = healthCheck(ip, port)
 
-	fmt.Printf("%+v\n", nodeState)
+	// fmt.Printf("%+v\n", nodeState)
 	return
 }
 
@@ -158,7 +173,7 @@ func QueryBee(ip string, port string, path string) interface{} {
 	client := http.Client{
 		Timeout: time.Second * 3, // Timeout after 2 seconds
 	}
-	global.GVA_LOG.Info("QueryBee: " + url)
+	// global.GVA_LOG.Info("QueryBee: " + url)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	req.Header.Set("Content-Type", "application/json")
 	if err != nil {

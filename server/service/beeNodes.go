@@ -127,3 +127,25 @@ func UpdateBeeNodeStatus(id uint, jwtId uint) (err error, beeNodes model.BeeNode
 	}
 	return
 }
+
+func UpdateBeeNodeStatusInBatch(ids request.IdsReq, jwtId uint) (err error) {
+	var beeNodess []model.BeeNodes
+	beeNodess = make([]model.BeeNodes, len(ids.Ids))
+	if jwtId == 1 {
+		err = global.GVA_DB.Where("id in ?", ids.Ids).Find(&beeNodess).Error
+	} else {
+		err = global.GVA_DB.Where("id in ? and user_id = ?", ids.Ids, jwtId).Find(&beeNodess).Error
+	}
+
+	if err != nil {
+		return
+	}
+
+	var ipPortList []request.IpPort
+	ipPortList = make([]request.IpPort, len(beeNodess))
+	for _, node := range beeNodess {
+		ipPortList = append(ipPortList, request.IpPort{Ip: node.Ip, Port: node.DebugPort})
+	}
+	utils.GetBeeNodeStateInConcurrently(ipPortList)
+	return err
+}

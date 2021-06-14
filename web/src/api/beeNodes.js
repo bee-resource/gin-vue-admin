@@ -111,3 +111,11 @@ export const importBeeNodes = (data) => {
     data,
   });
 };
+
+export const updateBeeNodeStatusInBatch = (data) => {
+  return service({
+    url: "/beeNodes/updateBeeNodeStatusInBatch",
+    method: "put",
+    data,
+  });
+};

@@ -176,3 +176,15 @@ func ImportBeeNodes(c *gin.Context) {
 		response.OkWithMessage("批量导入成功", c)
 	}
 }
+
+func UpdateBeeNodeStatusInBatch(c *gin.Context) {
+	var IDS request.IdsReq
+	_ = c.ShouldBindJSON(&IDS)
+	jwtId := getUserID(c)
+	if err := service.UpdateBeeNodeStatusInBatch(IDS, jwtId); err != nil {
+		global.GVA_LOG.Error("批量更新失败!", zap.Any("err", err))
+		response.FailWithMessage("批量更新失败", c)
+	} else {
+		response.OkWithMessage("批量更新成功", c)
+	}
+}

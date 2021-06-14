@@ -3,10 +3,10 @@
     <div class="search-term">
       <el-form :inline="true" :model="searchInfo" class="demo-form-inline">
         <el-form-item>
-          <el-button @click="onSubmit" type="primary">查询</el-button>
+          <el-button @click="batchRefresh" type="primary">批量查看节点状态</el-button>
         </el-form-item>
         <el-form-item>
-          <el-button @click="openDialog" type="primary">新增节点</el-button>
+          <el-button @click="openDialog" type="primary">批量新增节点</el-button>
         </el-form-item>
         <el-form-item>
           <el-popover placement="top" v-model="deleteVisible" width="160">
@@ -118,7 +118,8 @@ import {
     updateBeeNodesStatus,
     findBeeNodes,
     getBeeNodesList,
-    importBeeNodes
+    importBeeNodes,
+    updateBeeNodeStatusInBatch
 } from "@/api/beeNodes";  //  此处请自行替换地址
 import { formatTimeToStr } from "@/utils/date";
 import infoList from "@/mixins/infoList";
@@ -203,6 +204,29 @@ export default {
           this.getTableData()
         }
       },
+    async batchRefresh() {
+      const ids = []
+        if(this.multipleSelection.length == 0){
+          this.$message({
+            type: 'warning',
+            message: '请选择要查看状态的节点'
+          })
+          return
+        }
+      this.multipleSelection &&
+          this.multipleSelection.map(item => {
+            ids.push(item.ID)
+          })
+      const res = await updateBeeNodeStatusInBatch({ ids })
+        if (res.code == 0) {
+          this.$message({
+            type: 'success',
+            message: '批量查看状态成功'
+          })
+          this.deleteVisible = false
+          this.getTableData()
+        }
+    },
     async updateBeeNodes(row) {
       const res = await findBeeNodes({ ID: row.ID });
       this.type = "update";
