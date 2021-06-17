@@ -119,3 +119,11 @@ export const updateBeeNodeStatusInBatch = (data) => {
     data,
   });
 };
+
+export const cashoutBeeNodes = (data) => {
+  return service({
+    url: "/beeNodes/cashoutBeeNodesInBatch",
+    method: "post",
+    data,
+  });
+};

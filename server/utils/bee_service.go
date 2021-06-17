@@ -1,9 +1,12 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"gin-vue-admin/global"
 	"gin-vue-admin/model"
+	"gin-vue-admin/model/request"
 	"io"
 	"io/ioutil"
 	"log"
@@ -35,8 +38,15 @@ type CashInfo struct {
 	UnCashed int
 }
 
+type CashOutInfo struct {
+	TxId   string
+	Amount int
+}
+
 const BZZ_DECIMAL = 100000000000000000
-const MIN_AMOUT = 5
+const MIN_AMOUNT = 5
+const GETH_RPC_HOST = "http://119.8.191.65:8888"
+const DEFAULT_GAS_PRICE = "800000000000"
 
 type NodeState struct {
 	Address       string
@@ -159,14 +169,11 @@ func getLastCashedPayout(ip string, port string, peer string) int {
 		return 0
 	}
 	// log.Printf("%v, %+v\n", peer, msgMap)
-	if result, ok := msgMap.(map[string]interface{})["result"]; ok {
+	if result, ok := msgMap.(map[string]interface{})["cumulativePayout"]; ok {
 		if result == nil {
 			return 0
 		}
-		if lastPayout, ok := result.(map[string]interface{})["lastPayout"]; ok {
-			return int(lastPayout.(float64))
-		}
-		return 0
+		return int(result.(float64))
 	}
 	return 0
 }
@@ -177,6 +184,56 @@ func getPeerLength(ip string, port string) int {
 		return 0
 	}
 	return len(msgMap["peers"].([]interface{}))
+}
+
+func CashoutBeeNodesInConcurrently(cashoutBeeNodesInBatchReq request.CashOutInBatchReq, beeNodess []model.BeeNodes) {
+	var wg sync.WaitGroup
+	for index, node := range beeNodess {
+		wg.Add(1)
+		go func(index int, node model.BeeNodes) {
+			defer wg.Done()
+			for _, cashoutReq := range cashoutBeeNodesInBatchReq.CashoutList {
+				if cashoutReq.Id == int(node.ID) {
+					peerTxMap := CashOut(node.Ip, strconv.Itoa(node.DebugPort), cashoutReq.Nonce, cashoutReq.Count, cashoutReq.GasPrice)
+					node.UncashedCount -= len(peerTxMap)
+					for _, cashoutInfo := range peerTxMap {
+						node.UncashedAmount -= float64(cashoutInfo.Amount)
+					}
+					beeNodess[index] = node
+					fmt.Printf("index %v, %v, %v, %v\n", index, node.UncashedCount, node.UncashedAmount, peerTxMap)
+					break
+				}
+			}
+
+		}(index, node)
+	}
+	wg.Wait()
+}
+
+func CashOut(ip string, port string, nonce int64, count int, gasPrice string) (peerTxMap map[string]CashOutInfo) {
+	address := getAddress(ip, port)
+	if address == "" {
+		return
+	}
+	peers := getPeers(ip, port)
+	if peers == nil {
+		return
+	}
+
+	if nonce < 0 {
+		nonce = getNonce(address)
+	}
+
+	if count <= 0 {
+		count = 1
+	}
+	peerMap := make(map[string]Peer)
+	for _, peer := range peers {
+		peerMap[peer.Peer] = peer
+	}
+	cashMap := getAllCash(ip, port, peerMap)
+	peerTxMap = cashOutAll(ip, port, cashMap, nonce, count, gasPrice)
+	return
 }
 
 func QueryBee(ip string, port string, path string) interface{} {
@@ -242,4 +299,86 @@ func PostBee(ip string, port string, path string, b io.Reader, headers map[strin
 		return nil
 	}
 	return msgMapTemplate
+}
+
+func getNonce(address string) int64 {
+	url := GETH_RPC_HOST + "/get_nonce"
+	client := http.Client{
+		Timeout: time.Second * 10, // Timeout after 2 seconds
+	}
+
+	getNonceParams := GetNonceParams{
+		Address: address,
+	}
+
+	b, err := json.Marshal(getNonceParams)
+	if err != nil {
+		global.GVA_LOG.Info(err.Error())
+		return -1
+	}
+
+	req, err := http.NewRequest(http.MethodGet, url, bytes.NewBuffer(b))
+	req.Header.Set("Content-Type", "application/json")
+	if err != nil {
+		global.GVA_LOG.Info(err.Error())
+		return -1
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		global.GVA_LOG.Info(err.Error())
+	}
+	if res.Body != nil {
+		defer res.Body.Close()
+	}
+	body, _ := ioutil.ReadAll(res.Body)
+	// log.Printf("%v\n", string(body))
+	var msgMapTemplate interface{}
+	err = json.Unmarshal([]byte(body), &msgMapTemplate)
+	if err != nil {
+		global.GVA_LOG.Info(err.Error())
+		return -1
+	}
+	msgMap := msgMapTemplate.(map[string]interface{})
+	nonceHexStr := msgMap["data"].(map[string]interface{})["result"].(string)
+	nonce, err := strconv.ParseInt(nonceHexStr[2:], 16, 64)
+	if err != nil {
+		global.GVA_LOG.Info(err.Error())
+		return -1
+	}
+	return nonce
+}
+
+func cashOutAll(ip string, port string, cashMap map[string]CashInfo, nonce int64, count int, gasPrice string) (txMap map[string]CashOutInfo) {
+	txMap = make(map[string]CashOutInfo)
+	currentNonce := nonce
+	left := count
+	for peer, cash := range cashMap {
+		if cash.UnCashed >= MIN_AMOUNT {
+			tx := cashOut(ip, port, peer, currentNonce, gasPrice)
+			txMap[peer] = CashOutInfo{TxId: tx, Amount: cash.UnCashed}
+			currentNonce += 1
+		}
+		left -= 1
+		if left <= 0 {
+			break
+		}
+	}
+	return
+}
+
+func cashOut(ip string, port string, peer string, nonce int64, gasPrice string) string {
+	headers := make(map[string]string)
+	if gasPrice != "" {
+		headers["Gas-Price"] = DEFAULT_GAS_PRICE
+	} else {
+		headers["Gas-Price"] = gasPrice
+	}
+	headers["Gas-Limit"] = "300000"
+	if nonce > 0 {
+		headers["Nonce"] = strconv.FormatInt(nonce, 10)
+	}
+
+	result := PostBee(ip, port, "chequebook/cashout/"+peer, nil, headers)
+	return result.(map[string]interface{})["transactionHash"].(string)
 }

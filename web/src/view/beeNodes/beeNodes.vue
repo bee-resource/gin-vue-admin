@@ -60,6 +60,7 @@
         <template slot-scope="scope">
           <el-button class="table-button" @click="updateBeeNodesStatus(scope.row)" size="small" type="warning" icon="el-icon-edit">检查状态</el-button>
           <el-button class="table-button" @click="updateBeeNodes(scope.row)" size="small" type="primary" icon="el-icon-edit">变更</el-button>
+          <el-button class="table-button" @click="cashoutBeeNodes(scope.row)" size="small" type="primary" icon="el-icon-edit">收票</el-button>
           <el-button type="danger" icon="el-icon-delete" size="mini" @click="deleteRow(scope.row)">删除</el-button>
         </template>
       </el-table-column>
@@ -119,7 +120,8 @@ import {
     findBeeNodes,
     getBeeNodesList,
     importBeeNodes,
-    updateBeeNodeStatusInBatch
+    updateBeeNodeStatusInBatch,
+    cashoutBeeNodes
 } from "@/api/beeNodes";  //  此处请自行替换地址
 import { formatTimeToStr } from "@/utils/date";
 import infoList from "@/mixins/infoList";
@@ -235,6 +237,23 @@ export default {
         this.dialogFormVisible = true;
       }
     },
+    async cashoutBeeNodes(row) {
+      const res = await cashoutBeeNodes( {
+        cashoutList: [{
+          Id: row.ID,
+          Nonce: -1,
+          Count: 1,
+          GasPrice: "500000000000"
+          }]
+      });
+      if (res.code == 0) {
+        this.$message({
+          type: 'success',
+          message: '取票成功'
+        })
+        this.getTableData()
+      }
+    },
     closeDialog() {
       this.dialogFormVisible = false;
       this.formData = {
@@ -328,6 +347,12 @@ export default {
       }
     },
 
+    async cashoutDialog() {
+      let count = this.cashoutFormData.count;
+      let gasPrice = this.cashoutFormData.gasPrice;
+      let nonce = this.cashoutFormData.nonce;
+      let res = await cashoutBeeNodes({count: count, gasPrice: gasPrice, nonce: nonce});
+    },
     openDialog() {
       this.batchImportDialogFormVisible = true;
     }

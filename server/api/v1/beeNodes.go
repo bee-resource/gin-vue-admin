@@ -188,3 +188,15 @@ func UpdateBeeNodeStatusInBatch(c *gin.Context) {
 		response.OkWithMessage("批量更新成功", c)
 	}
 }
+
+func CashoutBeeNodesInBatch(c *gin.Context) {
+	var cashOutInBatchReq request.CashOutInBatchReq
+	_ = c.ShouldBindJSON(&cashOutInBatchReq)
+	jwtId := getUserID(c)
+	if err := service.CashoutBeeNodesInBatch(cashOutInBatchReq, jwtId); err != nil {
+		global.GVA_LOG.Error("批量取票失败!", zap.Any("err", err))
+		response.FailWithMessage("批量取票失败", c)
+	} else {
+		response.OkWithMessage("批量取票成功", c)
+	}
+}

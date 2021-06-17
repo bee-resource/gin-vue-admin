@@ -140,8 +140,34 @@ func UpdateBeeNodeStatusInBatch(ids request.IdsReq, jwtId uint) (err error) {
 	if err != nil {
 		return
 	}
-
 	utils.GetBeeNodeStateInConcurrently(beeNodess)
 	err = global.GVA_DB.Save(&beeNodess).Error
 	return err
+}
+
+func CashoutBeeNodesInBatch(cashoutBeeNodesInBatchReq request.CashOutInBatchReq, jwtId uint) (err error) {
+	var beeNodess []model.BeeNodes
+	var ids []int
+	ids = make([]int, 0)
+	beeNodess = make([]model.BeeNodes, 0)
+
+	for _, cashoutReq := range cashoutBeeNodesInBatchReq.CashoutList {
+		ids = append(ids, cashoutReq.Id)
+	}
+	if jwtId == 1 {
+		err = global.GVA_DB.Where("id in ?", ids).Find(&beeNodess).Error
+	} else {
+		err = global.GVA_DB.Where("id in ? and user_id = ?", ids, jwtId).Find(&beeNodess).Error
+	}
+	if err != nil {
+		return
+	}
+
+	utils.CashoutBeeNodesInConcurrently(cashoutBeeNodesInBatchReq, beeNodess)
+	err = global.GVA_DB.Save(&beeNodess).Error
+	return err
+}
+
+func CashoutBeeNodes(ip string, port string, nonce int64, count int, gasPrice string) map[string]utils.CashOutInfo {
+	return utils.CashOut(ip, port, nonce, count, gasPrice)
 }

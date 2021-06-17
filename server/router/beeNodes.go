@@ -19,5 +19,6 @@ func InitBeeNodesRouter(Router *gin.RouterGroup) {
 		BeeNodesRouter.PUT("updateBeeNodeStatus", v1.UpdateBeeNodeStatus)               // 更新节点状态
 		BeeNodesRouter.POST("importBeeNodes", v1.ImportBeeNodes)                        // 导入节点
 		BeeNodesRouter.PUT("updateBeeNodeStatusInBatch", v1.UpdateBeeNodeStatusInBatch) // 批量更新节点
+		BeeNodesRouter.POST("cashoutBeeNodesInBatch", v1.CashoutBeeNodesInBatch)        // 取票
 	}
 }
