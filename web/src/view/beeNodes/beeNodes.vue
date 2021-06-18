@@ -3,11 +3,16 @@
     <div class="search-term">
       <el-form :inline="true" :model="searchInfo" class="demo-form-inline">
         <el-form-item>
-          <el-button @click="batchRefresh" type="primary">批量查看节点状态</el-button>
+          <el-button @click="openImportBeeNodesDialog" type="primary">批量新增节点</el-button>
         </el-form-item>
         <el-form-item>
-          <el-button @click="openDialog" type="primary">批量新增节点</el-button>
+          <el-button @click="openCashoutDialog" type="success">批量取票</el-button>
         </el-form-item>
+
+        <el-form-item>
+          <el-button @click="batchRefresh" type="warning">批量查看节点状态</el-button>
+        </el-form-item>
+
         <el-form-item>
           <el-popover placement="top" v-model="deleteVisible" width="160">
             <p>确定要删除吗？</p>
@@ -56,12 +61,12 @@
     <el-table-column label="连接数" prop="peerCount" width="70"></el-table-column>
     <el-table-column label="eth余额" prop="ethBalance" width="100"></el-table-column>
     <el-table-column label="bzz余额" prop="bzzBalance" width="100"></el-table-column>
-      <el-table-column label="操作" width="300">
+      <el-table-column label="操作" width="200">
         <template slot-scope="scope">
-          <el-button class="table-button" @click="updateBeeNodesStatus(scope.row)" size="small" type="warning" icon="el-icon-edit">检查状态</el-button>
-          <el-button class="table-button" @click="updateBeeNodes(scope.row)" size="small" type="primary" icon="el-icon-edit">变更</el-button>
-          <el-button class="table-button" @click="cashoutBeeNodes(scope.row)" size="small" type="primary" icon="el-icon-edit">收票</el-button>
-          <el-button type="danger" icon="el-icon-delete" size="mini" @click="deleteRow(scope.row)">删除</el-button>
+          <el-button class="table-button" @click="updateBeeNodesStatus(scope.row)" size="small" type="warning">查</el-button>
+          <el-button class="table-button" @click="cashoutBeeNodes(scope.row)" size="small" type="success">收</el-button>
+          <el-button class="table-button" @click="updateBeeNodes(scope.row)" size="small" type="primary">改</el-button>
+          <el-button type="danger" size="mini" @click="deleteRow(scope.row)">删</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -107,6 +112,23 @@
         <el-button @click="enterDialog" type="primary">确 定</el-button>
       </div>
     </el-dialog>
+
+    <el-dialog :before-close="closeCashOutDialog" :visible.sync="cashoutDialogFormVisible" title="弹窗操作">
+      <el-form :model="cashoutFormData" label-position="right" label-width="80px">
+          <el-form-item label="gasPrice(单位G)"><el-input v-model.number="cashoutFormData.gasPrice" clearable placeholder="单位为G，默认800"></el-input>
+          </el-form-item>
+          <el-form-item label="count">
+              <el-input v-model="cashoutFormData.count" clearable placeholder="请输入取票次数" ></el-input>
+          </el-form-item>
+            <el-form-item label="nonce"><el-input v-model.number="cashoutFormData.nonce" clearable placeholder="不理解请保持-1即可"></el-input>
+          </el-form-item>
+      </el-form>
+      <div class="dialog-footer" slot="footer">
+        <el-button @click="closeCashOutDialog">取 消</el-button>
+        <el-button @click="enterCashoutDialog" type="primary">确 定</el-button>
+      </div>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -133,14 +155,22 @@ export default {
       listApi: getBeeNodesList,
       dialogFormVisible: false,
       batchImportDialogFormVisible: false,
+      cashoutDialogFormVisible: false,
       type: "",
       deleteVisible: false,
-      multipleSelection: [],formData: {
+      multipleSelection: [],
+      formData: {
             name:"",
             ip:"",
             debugPort:1635,
-      }, batchImportFormData : {
+      },
+      batchImportFormData : {
         nodes: ""
+      },
+      cashoutFormData: {
+        gasPrice: 800,
+        count: 1,
+        nonce: -1,
       }
     };
   },
@@ -238,21 +268,8 @@ export default {
       }
     },
     async cashoutBeeNodes(row) {
-      const res = await cashoutBeeNodes( {
-        cashoutList: [{
-          Id: row.ID,
-          Nonce: -1,
-          Count: 1,
-          GasPrice: "500000000000"
-          }]
-      });
-      if (res.code == 0) {
-        this.$message({
-          type: 'success',
-          message: '取票成功'
-        })
-        this.getTableData()
-      }
+      this.cashoutFormData.current_row = row;
+      this.cashoutDialogFormVisible = true;
     },
     closeDialog() {
       this.dialogFormVisible = false;
@@ -275,6 +292,16 @@ export default {
       this.batchImportDialogFormVisible = false;
       this.batchImportFormData = {
         nodes: ""
+      };
+    },
+
+    closeCashOutDialog() {
+      this.cashoutDialogFormVisible = false;
+      this.cashoutFormData = {
+        ids: [],
+        gasPrice: 800,
+        count: 1,
+        nonce: -1,
       };
     },
     async deleteBeeNodes(row) {
@@ -346,21 +373,54 @@ export default {
         this.getTableData();
       }
     },
+    async enterCashoutDialog() {
+      const cashoutList = [];
+      let gasPrice = (this.cashoutFormData.gasPrice * 10 ** 9).toString();
+      let current_row_count = parseInt(this.cashoutFormData.current_row.count);
+      if (current_row_count > 0) {
+        cashoutList.push({ Id: this.cashoutFormData.current_row.ID, Count: max(this.cashoutFormData.count, current_row_count), GasPrice: gasPrice })
+      }
+      this.multipleSelection &&
+        this.multipleSelection.map(item => {
+          let row_count = parseInt(item.count)
+          if(row_count > 0) {
+            cashoutList.push( { Id: item.ID, Count: max(this.cashoutFormData.count, row_count), GasPrice: gasPrice } )
+          }
+        })
 
+      if(cashoutList.length == 0) {
+        this.$message({
+          type:"warning",
+          message:"请先选中节点或者当前选中节点无票"
+        })
+        return;
+      }
+      const res = await cashoutBeeNodes({ cashoutList: cashoutList })
+      if (res.code == 0) {
+        this.$message({
+          type: 'success',
+          message: '取票成功'
+        })
+        this.cashoutDialogFormVisible = false;
+        this.getTableData()
+      }
+    },
     async cashoutDialog() {
       let count = this.cashoutFormData.count;
       let gasPrice = this.cashoutFormData.gasPrice;
       let nonce = this.cashoutFormData.nonce;
       let res = await cashoutBeeNodes({count: count, gasPrice: gasPrice, nonce: nonce});
     },
-    openDialog() {
+    async openImportBeeNodesDialog() {
       this.batchImportDialogFormVisible = true;
+    },
+    async openCashoutDialog() {
+      this.cashoutDialogFormVisible = true;
     }
   },
   async created() {
     await this.getTableData();
-  
-}
+  }
 };
 </script>
 

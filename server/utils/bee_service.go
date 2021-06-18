@@ -197,7 +197,7 @@ func CashoutBeeNodesInConcurrently(cashoutBeeNodesInBatchReq request.CashOutInBa
 					peerTxMap := CashOut(node.Ip, strconv.Itoa(node.DebugPort), cashoutReq.Nonce, cashoutReq.Count, cashoutReq.GasPrice)
 					node.UncashedCount -= len(peerTxMap)
 					for _, cashoutInfo := range peerTxMap {
-						node.UncashedAmount -= float64(cashoutInfo.Amount)
+						node.UncashedAmount -= float64(cashoutInfo.Amount) / BZZ_DECIMAL
 					}
 					beeNodess[index] = node
 					fmt.Printf("index %v, %v, %v, %v\n", index, node.UncashedCount, node.UncashedAmount, peerTxMap)
@@ -379,6 +379,15 @@ func cashOut(ip string, port string, peer string, nonce int64, gasPrice string) 
 		headers["Nonce"] = strconv.FormatInt(nonce, 10)
 	}
 
-	result := PostBee(ip, port, "chequebook/cashout/"+peer, nil, headers)
-	return result.(map[string]interface{})["transactionHash"].(string)
+	result := PostBee(ip, port, "chequebook/cashout/"+peer, nil, headers).(map[string]interface{})
+	if result == nil {
+		return ""
+	}
+	if transactionHash, ok := result["transactionHash"]; ok {
+		if transactionHash == nil {
+			return ""
+		}
+		return transactionHash.(string)
+	}
+	return ""
 }
