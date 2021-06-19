@@ -39,8 +39,11 @@ type CashInfo struct {
 }
 
 type CashOutInfo struct {
-	TxId   string
-	Amount int
+	NodeId   uint
+	TxId     string
+	Amount   int
+	Nonce    int64
+	GasPrice float64
 }
 
 const BZZ_DECIMAL = 100000000000000000
@@ -95,6 +98,7 @@ func GetBeeNodeState(ip string, port string) (nodeState *NodeState) {
 		peerMap[peer.Peer] = peer
 	}
 	cashMap := getAllCash(ip, port, peerMap)
+	fmt.Printf("cashMap: %+v\n", cashMap)
 	len := len(cashMap)
 	total_amount := 0
 	total_uncashed := 0
@@ -186,21 +190,27 @@ func getPeerLength(ip string, port string) int {
 	return len(msgMap["peers"].([]interface{}))
 }
 
-func CashoutBeeNodesInConcurrently(cashoutBeeNodesInBatchReq request.CashOutInBatchReq, beeNodess []model.BeeNodes) {
+func CashoutBeeNodesInConcurrently(cashoutBeeNodesInBatchReq request.CashOutInBatchReq, beeNodess []model.BeeNodes) (ipPeerCashOutInfoMap map[string]map[string]CashOutInfo) {
 	var wg sync.WaitGroup
+	ipPeerCashOutInfoMap = make(map[string]map[string]CashOutInfo)
 	for index, node := range beeNodess {
 		wg.Add(1)
 		go func(index int, node model.BeeNodes) {
 			defer wg.Done()
 			for _, cashoutReq := range cashoutBeeNodesInBatchReq.CashoutList {
 				if cashoutReq.Id == int(node.ID) {
-					peerTxMap := CashOut(node.Ip, strconv.Itoa(node.DebugPort), cashoutReq.Nonce, cashoutReq.Count, cashoutReq.GasPrice)
-					node.UncashedCount -= len(peerTxMap)
-					for _, cashoutInfo := range peerTxMap {
-						node.UncashedAmount -= float64(cashoutInfo.Amount) / BZZ_DECIMAL
+					peerTxMap := CashOutOneNode(node.ID, node.Ip, strconv.Itoa(node.DebugPort), cashoutReq.Nonce, cashoutReq.Count, cashoutReq.GasPrice)
+					if peerTxMap != nil {
+						for _, cashoutInfo := range peerTxMap {
+							if cashoutInfo.TxId != "" {
+								node.UncashedAmount -= float64(cashoutInfo.Amount) / BZZ_DECIMAL
+								node.UncashedCount -= 1
+							}
+						}
+						beeNodess[index] = node
+						ipPeerCashOutInfoMap[node.Ip] = peerTxMap
+						fmt.Printf("index %v, %v, %v, %v\n", index, node.UncashedCount, node.UncashedAmount, peerTxMap)
 					}
-					beeNodess[index] = node
-					fmt.Printf("index %v, %v, %v, %v\n", index, node.UncashedCount, node.UncashedAmount, peerTxMap)
 					break
 				}
 			}
@@ -208,9 +218,10 @@ func CashoutBeeNodesInConcurrently(cashoutBeeNodesInBatchReq request.CashOutInBa
 		}(index, node)
 	}
 	wg.Wait()
+	return ipPeerCashOutInfoMap
 }
 
-func CashOut(ip string, port string, nonce int64, count int, gasPrice string) (peerTxMap map[string]CashOutInfo) {
+func CashOutOneNode(nodeId uint, ip string, port string, nonce int64, count int, gasPrice string) (peerTxMap map[string]CashOutInfo) {
 	address := getAddress(ip, port)
 	if address == "" {
 		return
@@ -232,7 +243,7 @@ func CashOut(ip string, port string, nonce int64, count int, gasPrice string) (p
 		peerMap[peer.Peer] = peer
 	}
 	cashMap := getAllCash(ip, port, peerMap)
-	peerTxMap = cashOutAll(ip, port, cashMap, nonce, count, gasPrice)
+	peerTxMap = cashOutAll(nodeId, ip, port, cashMap, nonce, count, gasPrice)
 	return
 }
 
@@ -349,15 +360,21 @@ func getNonce(address string) int64 {
 	return nonce
 }
 
-func cashOutAll(ip string, port string, cashMap map[string]CashInfo, nonce int64, count int, gasPrice string) (txMap map[string]CashOutInfo) {
+func cashOutAll(nodeId uint, ip string, port string, cashMap map[string]CashInfo, nonce int64, count int, gasPrice string) (txMap map[string]CashOutInfo) {
 	txMap = make(map[string]CashOutInfo)
 	currentNonce := nonce
 	left := count
+	gasPriceFloat, err := strconv.ParseFloat(gasPrice, 64)
+	if err != nil {
+		return
+	}
 	for peer, cash := range cashMap {
 		if cash.UnCashed >= MIN_AMOUNT {
 			tx := cashOut(ip, port, peer, currentNonce, gasPrice)
-			txMap[peer] = CashOutInfo{TxId: tx, Amount: cash.UnCashed}
-			currentNonce += 1
+			if tx != "" {
+				txMap[peer] = CashOutInfo{NodeId: nodeId, TxId: tx, Amount: cash.UnCashed, GasPrice: gasPriceFloat, Nonce: currentNonce}
+				currentNonce += 1
+			}
 		}
 		left -= 1
 		if left <= 0 {
@@ -369,7 +386,7 @@ func cashOutAll(ip string, port string, cashMap map[string]CashInfo, nonce int64
 
 func cashOut(ip string, port string, peer string, nonce int64, gasPrice string) string {
 	headers := make(map[string]string)
-	if gasPrice != "" {
+	if gasPrice == "" {
 		headers["Gas-Price"] = DEFAULT_GAS_PRICE
 	} else {
 		headers["Gas-Price"] = gasPrice
@@ -383,6 +400,7 @@ func cashOut(ip string, port string, peer string, nonce int64, gasPrice string) 
 	if result == nil {
 		return ""
 	}
+	fmt.Printf("cashOut result: %v, %v, %v\n", "chequebook/cashout/"+peer, result, headers)
 	if transactionHash, ok := result["transactionHash"]; ok {
 		if transactionHash == nil {
 			return ""

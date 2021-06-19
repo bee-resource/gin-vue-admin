@@ -48,10 +48,10 @@
 
     <el-table-column label="端口" prop="debugPort" width="60"></el-table-column>
 
-    <el-table-column label="钱包地址" min-width="100">
+    <el-table-column label="钱包地址" min-width="150">
         <template slot-scope="scope">
           <a :href="'https://goerli.etherscan.io/address/'+scope.row.walletAddress"
-            target="_blank">{{scope.row.walletAddress}}
+            target="_blank" style="color:#2665e4">{{scope.row.walletAddress}}
           </a>
         </template>
     </el-table-column>
@@ -168,6 +168,7 @@ export default {
         nodes: ""
       },
       cashoutFormData: {
+        current_row: null,
         gasPrice: 800,
         count: 1,
         nonce: -1,
@@ -375,16 +376,31 @@ export default {
     },
     async enterCashoutDialog() {
       const cashoutList = [];
+      const cashoutIdMap = {};
       let gasPrice = (this.cashoutFormData.gasPrice * 10 ** 9).toString();
-      let current_row_count = parseInt(this.cashoutFormData.current_row.count);
+      let current_row_count = parseInt(this.cashoutFormData.current_row.uncashedCount);
       if (current_row_count > 0) {
-        cashoutList.push({ Id: this.cashoutFormData.current_row.ID, Count: max(this.cashoutFormData.count, current_row_count), GasPrice: gasPrice })
+        let id = this.cashoutFormData.current_row.ID;
+        cashoutList.push({
+          Id: id,
+          Count: Math.min(this.cashoutFormData.count, current_row_count),
+          GasPrice: gasPrice,
+          Nonce:  this.cashoutFormData.nonce})
+        cashoutIdMap[id] = id;
       }
       this.multipleSelection &&
         this.multipleSelection.map(item => {
-          let row_count = parseInt(item.count)
+          let row_count = parseInt(item.uncashedCount)
+          let id = item.ID;
           if(row_count > 0) {
-            cashoutList.push( { Id: item.ID, Count: max(this.cashoutFormData.count, row_count), GasPrice: gasPrice } )
+            if(!(id in cashoutIdMap)) {
+              cashoutList.push({
+                Id: id,
+                Count: Math.min(this.cashoutFormData.count, row_count),
+                GasPrice: gasPrice,
+                Nonce:  this.cashoutFormData.nonce})
+              cashoutIdMap[id] = id;
+            }
           }
         })
 
@@ -425,7 +441,4 @@ export default {
 </script>
 
 <style>
-a:link {
-  color: #2665e4;
-}
 </style>

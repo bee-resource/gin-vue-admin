@@ -145,7 +145,7 @@ func UpdateBeeNodeStatusInBatch(ids request.IdsReq, jwtId uint) (err error) {
 	return err
 }
 
-func CashoutBeeNodesInBatch(cashoutBeeNodesInBatchReq request.CashOutInBatchReq, jwtId uint) (err error) {
+func CashoutBeeNodesInBatch(cashoutBeeNodesInBatchReq request.CashOutInBatchReq, jwtId uint) (err error, transactions []model.BeeTransactions) {
 	var beeNodess []model.BeeNodes
 	var ids []int
 	ids = make([]int, 0)
@@ -163,11 +163,22 @@ func CashoutBeeNodesInBatch(cashoutBeeNodesInBatchReq request.CashOutInBatchReq,
 		return
 	}
 
-	utils.CashoutBeeNodesInConcurrently(cashoutBeeNodesInBatchReq, beeNodess)
+	ipPeerCashOutInfoMap := utils.CashoutBeeNodesInConcurrently(cashoutBeeNodesInBatchReq, beeNodess)
 	err = global.GVA_DB.Save(&beeNodess).Error
-	return err
-}
-
-func CashoutBeeNodes(ip string, port string, nonce int64, count int, gasPrice string) map[string]utils.CashOutInfo {
-	return utils.CashOut(ip, port, nonce, count, gasPrice)
+	if err != nil {
+		return
+	}
+	transactions = make([]model.BeeTransactions, 0)
+	// save transactions
+	for _, peerCashOutInfoMap := range ipPeerCashOutInfoMap {
+		for peer, cashOutInfo := range peerCashOutInfoMap {
+			transactions = append(transactions, model.BeeTransactions{BeeNodeId: cashOutInfo.NodeId,
+				Peer: peer, CashedAmount: float64(cashOutInfo.Amount),
+				GasPrice: cashOutInfo.GasPrice, Nonce: cashOutInfo.Nonce,
+				TxId: cashOutInfo.TxId,
+			})
+		}
+	}
+	err = global.GVA_DB.Save(&transactions).Error
+	return
 }
