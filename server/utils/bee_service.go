@@ -254,11 +254,11 @@ func QueryBee(ip string, port string, path string) interface{} {
 	}
 	// global.GVA_LOG.Info("QueryBee: " + url)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
-	req.Header.Set("Content-Type", "application/json")
 	if err != nil {
 		global.GVA_LOG.Info(err.Error())
 		return nil
 	}
+	req.Header.Set("Content-Type", "application/json")
 
 	res, err := client.Do(req)
 	if err != nil {
