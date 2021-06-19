@@ -6,6 +6,7 @@ import (
 	"gin-vue-admin/model/request"
 	"gin-vue-admin/model/response"
 	"gin-vue-admin/service"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	uuid "github.com/satori/go.uuid"
@@ -167,7 +168,7 @@ func ImportBeeNodes(c *gin.Context) {
 	}
 	beeNodesList = make([]model.BeeNodes, batchSize)
 	for _, ipPort := range ipPortListReq.IpPortList {
-		beeNodesList = append(beeNodesList, model.BeeNodes{UserId: userId, Uuid: uuid.NewV4(), Ip: ipPort.Ip, DebugPort: ipPort.Port})
+		beeNodesList = append(beeNodesList, model.BeeNodes{UserId: userId, Uuid: uuid.NewV4(), Ip: strings.Trim(ipPort.Ip, " "), DebugPort: ipPort.Port})
 	}
 	if err := service.CreateBeeNodesInBatch(beeNodesList); err != nil {
 		global.GVA_LOG.Error("批量导入失败!", zap.Any("err", err))
