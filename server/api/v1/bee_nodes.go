@@ -143,6 +143,16 @@ func GetBeeNodesList(c *gin.Context) {
 	}
 }
 
+func StatisticInfo(c *gin.Context) {
+	jwtId := getUserID(c)
+	if err, info := service.StatisticInfo(jwtId); err != nil {
+		global.GVA_LOG.Error("获取失败!", zap.Any("err", err))
+		response.FailWithMessage("获取失败", c)
+	} else {
+		response.OkWithData(gin.H{"StatisticInfo": info}, c)
+	}
+}
+
 func UpdateBeeNodeStatus(c *gin.Context) {
 	var beeNodes model.BeeNodes
 	_ = c.ShouldBindJSON(&beeNodes)
@@ -168,7 +178,7 @@ func ImportBeeNodes(c *gin.Context) {
 	}
 	beeNodesList = make([]model.BeeNodes, batchSize)
 	for _, ipPort := range ipPortListReq.IpPortList {
-		beeNodesList = append(beeNodesList, model.BeeNodes{UserId: userId, Uuid: uuid.NewV4(), Ip: strings.Trim(ipPort.Ip, " "), DebugPort: ipPort.Port})
+		beeNodesList = append(beeNodesList, model.BeeNodes{Name: ipPort.Name, UserId: userId, Uuid: uuid.NewV4(), Ip: strings.Trim(ipPort.Ip, " "), DebugPort: ipPort.Port})
 	}
 	if err := service.CreateBeeNodesInBatch(beeNodesList); err != nil {
 		global.GVA_LOG.Error("批量导入失败!", zap.Any("err", err))

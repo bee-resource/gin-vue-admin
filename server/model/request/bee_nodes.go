@@ -8,6 +8,7 @@ type BeeNodesSearch struct {
 }
 
 type IpPort struct {
+	Name string `json:"name" form:"name"`
 	Ip   string `json:"ip" form:"ip"`
 	Port int    `json:"port" form:"port"`
 }

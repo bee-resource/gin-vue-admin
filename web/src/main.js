@@ -139,6 +139,10 @@ auth(Vue);
 import uploader from "vue-simple-uploader";
 Vue.use(uploader);
 
+import vElementTableHeader from "v-element-table-header";
+import "v-element-table-header/lib/main.css";
+Vue.use(vElementTableHeader);
+
 export default new Vue({
   render: (h) => h(App),
   router,

@@ -179,7 +179,7 @@ export default {
       this.$bus.emit('collapse', this.isCollapse)
     },
     toPerson() {
-      this.$router.push('/register')
+      this.$router.push({ name: 'person' })
     },
     changeShadow() {
       this.isShadowBg = !this.isShadowBg

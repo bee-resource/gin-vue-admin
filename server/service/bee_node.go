@@ -99,12 +99,31 @@ func GetBeeNodesInfoList(info request.BeeNodesSearch, jwtId uint) (err error, li
 	var beeNodess []model.BeeNodes
 	// 如果有条件搜索 下方会自动创建搜索语句
 	err = db.Where("user_id = ?", jwtId).Count(&total).Error
-	if jwtId == 1 {
+	if jwtId == 888 {
 		err = db.Limit(limit).Offset(offset).Find(&beeNodess).Error
 	} else {
 		err = db.Where("user_id = ?", jwtId).Limit(limit).Offset(offset).Find(&beeNodess).Error
 	}
 	return err, beeNodess, total
+}
+
+type StatisticResult struct {
+	TotalNum            int     `gorm:"column:totalNum"`
+	TotalUnCashedCount  int     `gorm:"column:totalUnCashedCount"`
+	TotalUnCashedAmount float64 `gorm:"column:totalUnCashedAmount"`
+}
+
+func StatisticInfo(jwtId uint) (err error, info interface{}) {
+	// 创建db
+	var result StatisticResult
+	var beeNodes []model.BeeNodes
+	db := global.GVA_DB.Model(&model.BeeNodes{})
+	if jwtId == 888 {
+		err = db.Find(&beeNodes).Error
+	} else {
+		err = db.Select("count(id) as totalNum, sum(uncashed_count) as totalUnCashedCount, sum(uncashed_amount) as totalUnCashedAmount").Where("user_id = ?", jwtId).Find(&result).Error
+	}
+	return err, result
 }
 
 func UpdateBeeNodeStatus(id uint, jwtId uint) (err error, beeNodes model.BeeNodes) {

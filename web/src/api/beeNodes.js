@@ -96,6 +96,14 @@ export const getBeeNodesList = (params) => {
   });
 };
 
+export const getBeeNodesStatisticInfo = (params) => {
+  return service({
+    url: "/beeNodes/statisticInfo",
+    method: "get",
+    params,
+  });
+};
+
 export const updateBeeNodesStatus = (data) => {
   return service({
     url: "/beeNodes/updateBeeNodeStatus",

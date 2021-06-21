@@ -142,7 +142,11 @@ func getAddress(ip string, port string) string {
 func getPeers(ip string, port string) []Peer {
 	peers := make([]Peer, 0)
 
-	msgMap := QueryBee(ip, port, "chequebook/cheque").(map[string]interface{})
+	resp := QueryBee(ip, port, "chequebook/cheque")
+	if resp == nil {
+		return nil
+	}
+	msgMap := resp.(map[string]interface{})
 	if msgMap == nil {
 		return nil
 	}
@@ -297,6 +301,7 @@ func PostBee(ip string, port string, path string, b io.Reader, headers map[strin
 	res, err := client.Do(req)
 	if err != nil {
 		global.GVA_LOG.Info(err.Error())
+		return nil
 	}
 	if res.Body != nil {
 		defer res.Body.Close()
@@ -396,7 +401,11 @@ func cashOut(ip string, port string, peer string, nonce int64, gasPrice string) 
 		headers["Nonce"] = strconv.FormatInt(nonce, 10)
 	}
 
-	result := PostBee(ip, port, "chequebook/cashout/"+peer, nil, headers).(map[string]interface{})
+	resp := PostBee(ip, port, "chequebook/cashout/"+peer, nil, headers)
+	if resp == nil {
+		return ""
+	}
+	result := resp.(map[string]interface{})
 	if result == nil {
 		return ""
 	}
